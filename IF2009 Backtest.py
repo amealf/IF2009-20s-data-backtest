@@ -1,7 +1,3 @@
-
-'''
-Initialization
-'''
 import pandas as pd
 import numpy as np
 #from costatrade import Strategy
@@ -17,22 +13,25 @@ os.makedirs('./long outcome/perf', exist_ok=True)
 os.makedirs('./long outcome/trans', exist_ok=True)
 
 
-
-
 """
 This is with_diff's parent class
-Including __init__ and some definitions that would be used in def general_signal to calculate some variable.
+including __init__ and some definitions 
+that would be used in def general_signal to calculate some variable.
 可以全部放在同一个类里
 分成父子类提高可读性
 """
 class Strategy(object):
     # class initializing
     # assign values to object properties
-    def __init__(self, quote, capital, open_minute, open_threshold, open_continous_threshold, open_withdrawal_threshold, close_minute, close_threshold, close_withdrawal_threshold, commision_percent):
+    def __init__(
+            self, quote, capital, open_minute, open_threshold, 
+            open_continous_threshold, open_withdrawal_threshold, 
+            close_minute, close_threshold, close_withdrawal_threshold, commision_percent
+            ):
         # init parameters
         self.quote = quote  # quote就是标的
         self.capital = capital  # 起始资金，通常为100
-        self.commision_percent = commision_percent # commision parameter
+        self.commision_percent = commision_percent  # commision parameter
         # position opening parameters
         self.open_minute = open_minute
         self.open_threshold = open_threshold
@@ -47,9 +46,9 @@ class Strategy(object):
         self.performance, self.transactions = self.generate_performance(self.commision_percent)
 
     def get_increase(self, df):
-        #input: df(a slice of minute stock data df)
-        #output: the increase price points from the lowest point to highest point 
-        #during the interval of df.
+        # input: df(a slice of minute stock data df)
+        # output: the increase price points from the lowest point to highest point 
+        # during the interval of df.
         if df.empty:
             print('received empty dataframe at get_increase function.')
             pass
@@ -102,7 +101,7 @@ class Strategy(object):
                 withdrawal = with_high - with_low
         return withdrawal
 
-    # 这个算法会将回撤平仓的那一bar的跌幅全部计算进去 因此得数可能会比回撤平仓的设定值高
+    # 这个算法会将回撤平仓的那一根bar的跌幅全部计算进去 因此得数可能会比回撤平仓的设定值高
     def get_max_withdrawal(self, df, assumebarwithdrawal=True):
         with_high = 0
         with_low = 0
@@ -121,20 +120,16 @@ class Strategy(object):
                 elif row['low'] < with_low:
                     with_low = row['low']
                 withdrawal = with_high - with_low
-
             if withdrawal > max_withdrawal:
                 max_withdrawal = withdrawal
-
         return max_withdrawal
-
-
-
 
 '''
 We use this class to instantiate historical data.
 def generate_signals handle with data.
 Then we use def generate_performance to calculate remain capical of our account.
 '''
+
 class with_diff(Strategy):  
 
     # 通过既定的策略生成持仓状态的信号 的方法
@@ -181,7 +176,6 @@ class with_diff(Strategy):
         recent_low_index = 0
         missing_warning = 0
         
-
         for index, row in signal.iterrows():  # 对每一根k线进行运算
             # 0 if have no holdings, see if can open a position
             # 开仓模块
@@ -202,14 +196,13 @@ class with_diff(Strategy):
                     last_index = integer_index - self.open_minute + 1  # +1
                 new_opening_count += 1
                 analysis_slice = self.quote[last_index:integer_index + 1]
-                
                 if variable0 == 0:  # 0是初始值
                     # 3 definitions of increase & withdrawal
                     increase = self.get_increase(analysis_slice)
                     withdrawal = self.get_withdrawal(analysis_slice)
                     signal.at[index, 'withdrawal_data'] = withdrawal
                     signal.at[index, 'increase_data'] = increase
-    
+
                     # 4 定义cond1(increaser cond)和cond2(withdrawal cond)。满足条件时在该条件的signal的column上标记为1，不满足时标记为0。
                     cond1 = increase >= self.open_threshold # 条件1：increase 大于等于 open_threshold ，即满足开仓的速度
                     if cond1:
@@ -222,7 +215,7 @@ class with_diff(Strategy):
                     else:
                         signal.at[index, 'withdrawal_signal'] = 0
 
-                # 5 如果cond2满足，那么判断一次cond1是否满足。两者都满足时，计算low_index位置，然后令variable0 = 1。之后不再判断cond1。
+                    # 5 如果cond2满足，那么判断一次cond1是否满足。两者都满足时，计算low_index位置，然后令variable0 = 1。之后不再判断cond1。
                     if signal.at[index, 'withdrawal_signal']:
                         if signal.at[index, 'increase_signal']:
                             # 满足cond1和cond2时，计算行情开始的位置 low_index，然后将v0设为1
@@ -235,7 +228,7 @@ class with_diff(Strategy):
                                     break
                                 # in case it doesn't works
                                 else:
-                                    print(integer_index + 'did not fount low_index' )
+                                    print(integer_index + 'did not find low_index' )
                             last_index = low_index
                             start_index = last_index  # start_index会一直等于last_index不会reset,用于计算high_index
                             variable0 = 1
@@ -244,8 +237,8 @@ class with_diff(Strategy):
                     else:
                         if increase > self.open_continous_threshold:
                             missing_warning += 1
-                            print (missing_warning)
-                            print (index)
+                            print(missing_warning)
+                            print(index)
                         new_opening = True  # 移动last_index和holding_start_index的位置
                         new_opening_count = 1
 
@@ -253,19 +246,19 @@ class with_diff(Strategy):
                 if variable0 == 1:
                     new_opening_count = integer_index - low_index + 1
                     signal.at[index, 'low_index'] = low_index
-                    variable0 = 2 # 通过将variable0的值设为2来进入 判断涨幅是否足以开仓 的阶段
+                    variable0 = 2  # 通过将variable0的值设为2来进入 判断涨幅是否足以开仓 的阶段
 
                 # 7 判断是否开仓的标准是 计算总涨幅是否大于open_continous_threshold
                 if variable0 == 2:
                     cond3_analysis_slice = self.quote[low_index: integer_index + 1]
                     withdrawal = self.get_withdrawal(cond3_analysis_slice)
                     signal.at[index, 'withdrawal_data'] = withdrawal
-                    cond3 = withdrawal < self.open_withdrawal_threshold # 条件2: if withdrawal is less than open_withdrawal_threshold
+                    cond3 = withdrawal < self.open_withdrawal_threshold  # 条件2: if withdrawal is less than open_withdrawal_threshold
                     if cond3:
                         signal.at[index, 'withdrawal_signal'] = 1     
                     else:
                         signal.at[index, 'withdrawal_signal'] = 0                        
-                    if signal.at[index, 'withdrawal_signal']: # 仍要继续判断回撤条件是否满足
+                    if signal.at[index, 'withdrawal_signal']:  # 仍要继续判断回撤条件是否满足
                         if new_opening_count >= self.open_minute: 
                             increase_slice = self.quote[last_index: integer_index + 1]
                             analysis_increase = self.get_analysis_increase(increase_slice) # 这个区间的涨幅
@@ -313,13 +306,13 @@ class with_diff(Strategy):
                 if variable0 == 4:
                     increase3_slice = self.quote[start_index: integer_index + 1]
                     increase3 = self.get_increase(increase3_slice)
-                    for i in range(start_index + 1, integer_index + 2):  # last_index+1是为了在第一次计算时值为last_index所在位置的值
+                    for i in range(start_index + 1, integer_index+2):  # last_index+1是为了在第一次计算时值为last_index所在位置的值
                         high_index_slice = self.quote[start_index: i]
                         increase4 = self.get_increase(high_index_slice)
                         if increase4 == increase3:
                             high_index = i - 1
                             break
-                    max_slice = self.quote[low_index: high_index + 1]
+                    max_slice = self.quote[low_index: high_index+1]
                     max_withdrawal = self.get_max_withdrawal(max_slice)
                     max_increase = self.get_increase(max_slice)
                     signal.at[index, 'max_increase'] = max_increase
@@ -328,8 +321,8 @@ class with_diff(Strategy):
                     signal.at[index, 'low_index'] = low_index
                     # End
                     # 统计完成后reset模块
-                    for i in range(last_index, integer_index + 1):  # 循环会在integer_index处停止
-                        low_index_slice = self.quote[i: integer_index + 1]
+                    for i in range(last_index, integer_index+1):  # 循环会在integer_index处停止
+                        low_index_slice = self.quote[i: integer_index+1]
                         increase2 = self.get_increase(low_index_slice)
                         if increase2 == increase:
                             recent_low_index = i
@@ -491,7 +484,8 @@ class with_diff(Strategy):
         """
         starting_capital = self.capital
         self.signal['capital'] = 0.0  # self.signal就是df_signal 374行
-        transactions_df = pd.DataFrame(columns=['Date', 'Type', 'Price', 'Close_type', 'Capital', 'Percent'])  # 最后会输出为trans
+        transactions_df = pd.DataFrame(columns=[
+            'Date', 'Type', 'Price', 'Close_type', 'Capital', 'Percent'])  # 最后会输出为trans
         type = None
         cost = None
         for index, row in self.signal.iterrows():  # self.signal就是
@@ -559,8 +553,8 @@ def read_data(filename):
 
 df = read_data('20s OHLC result.txt')# 读取数据文件并转换为dataframe
 # 回测的时间区间
-startdate = 0
-enddate = 5000
+startdate = 00000
+enddate = 20000
 df5  = df[startdate : enddate]
 underlying = df5
 
@@ -570,7 +564,7 @@ underlying = df5
 '''
 输入参数&实例化
 '''
-step1 = 0.5
+step1 = 5
 step2 = 0.5
 for_num_1 = 1
 for_num_2 = 1
@@ -582,10 +576,10 @@ for num in range(for_num_1):
         print(str(num) +' '+ str(i))
         print('\n')
         # strategy parameters
-        open_minute = close_minute = 25
-        open_threshold = close_threshold = 2
-        open_continous_threshold = 6 + (i * step1)
-        open_withdrawal_threshold = close_withdrawal_threshold = 3 + (num * step2)
+        open_minute = close_minute = 40 + (i*step1)
+        open_threshold = close_threshold = 1
+        open_continous_threshold = 3
+        open_withdrawal_threshold = close_withdrawal_threshold = 1 + (num * step2)
         commision_percent = 0.0001
         capital = 100.0  # 初始资本
         # 实例化
@@ -619,8 +613,8 @@ for num in range(for_num_1):
         #size
         left = 0.043
         width = 0.943
-        bottom = 0.073
-        height = 0.91
+        bottom = 0.07
+        height = 0.9
         rect_line = [left, bottom, width, height] # below parameter
         #ax
         ax = fig.add_axes(rect_line)
@@ -633,18 +627,22 @@ for num in range(for_num_1):
         ax.grid(b = True, linestyle = 'dashed', color='#DBD8D8')
         ax.xaxis.set_major_locator(ticker.LinearLocator(30))
         ax.yaxis.set_major_locator(ticker.LinearLocator(10))
-        Plot1 = ax.plot(xaxis1, yaxis1, ms=0.1)
-        Plot2 = ax.plot(xaxis2, yaxis2, ms=0.1)
+        Plot1 = ax.plot(xaxis1, yaxis1, linewidth=1.2)
+        Plot2 = ax.plot(xaxis2, yaxis2, linewidth=1.2)
         #locs, labels=plt.xticks()
         #plt.xticks(locs, b, rotation=30, horizontalalignment='right')
-        cursor = Cursor(ax, useblit=True, color='red', linewidth=1)# 十字光标
+        cursor = Cursor(ax, useblit=True, color='red', linewidth=0.7)# 十字光标
         #remove spot's frame
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         #show and save as pdf
         degrees=45# x轴日期偏斜的角度
         plt.xticks(rotation=degrees)
-        #plt.show()
+        plt.title( '%s' % ( ' a' + str(strategy.open_minute) 
+                    + ' b' + str(strategy.open_threshold) + ' c' + str(strategy.open_continous_threshold) 
+                    + ' d' + str(strategy.open_withdrawal_threshold) + ' ' + str(strategy.withdrawal_close_count) 
+                    + '+' + str(strategy.speed_close_count) + ' ' + str(startdate) + '-' + str(enddate) ) )
+        plt.show()
         plt.savefig('long outcome/' + ' a' + str(strategy.open_minute) 
                     + ' b' + str(strategy.open_threshold) + ' c' + str(strategy.open_continous_threshold) 
                     + ' d' + str(strategy.open_withdrawal_threshold) + ' ' + str(strategy.withdrawal_close_count) 
